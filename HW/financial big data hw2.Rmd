@@ -1,0 +1,212 @@
+---
+title: "Financial Big Data HW2"
+author: '109090046呂庭羽'
+date: "2023-03-01"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Reading dataset
+Read the csv file into a data.frame by the name market.
+
+```{r data}
+library(readr)
+market <- read_csv("D:/下載/marketing_data.csv", show_col_types = FALSE)
+```
+
+---
+
+### Question 1
+Use both `str()` and `skim()` to check the structure of 'market'.
+
+```{r q1}
+#Use `str()`
+str(market)
+
+#Use `skim()`
+library(skimr)
+skim(market)
+```
+
+---
+
+### Question 2
+List all name of variables in 'market'.
+
+```{r q2}
+names(market)
+```
+
+---
+
+### Question 3
+Find out the number of rows that contain missing values.
+
+```{r q3}
+sum(!complete.cases(market))
+```
+
+---
+
+### Question 4
+Find out the number of missing values in each column.
+
+```{r q4}
+colSums(is.na(market))
+
+library(skimr)
+skim(market)
+```
+
+---
+
+### Question 5
+Use the `describe()` from 'psych' to check 'market' and explain how it handles character variables. Also, use `summary()` to see how it handles character variables.
+
+```{r q5}
+library(psych)
+describe(market)
+
+summary(market)
+```
+`describe()` shows the mean, standard deviation, median, trimmed(mean without outliers), median absolute deviation, range, skewness, kurtosis and standard error with data.frame, while `summary()` shows quartile.
+
+---
+
+### Question 6
+Use `table()` on 'Education', 'Martial_Status' and 'Country'.
+And on the pair of 'Education' and 'Martial_Status'.
+Redo them with `%$%`.
+
+```{r q6}
+table(market$Education)
+table(market$Marital_Status)
+table(market$Country)
+
+table(market$Education, market$Marital_Status)
+
+library(magrittr)
+table(market%$%Education)
+table(market%$%Marital_Status)
+table(market%$%Country)
+
+table(market%$%Education, market%$%Marital_Status)
+```
+
+`table()` creates frequency table of each character variable.
+And, `table()` on the pair of character variables shows the frequency table for two character variables mutually.
+
+---
+
+### Question 7
+
+```{r q7}
+income <- market$Income
+head(income)
+
+market$Income <- as.numeric(gsub("[^0-9.]", "", market$Income))
+head(market$Income)
+```
+`Income` in csv are formatted as currency which always has a `$` in front of every numeric data, so after we imported it into R they will be imported as character strings.
+
+The `gsub()` function removes any non-numeric characters (including the currency symbol) from the strings, and the `as.numeric()` function converts the cleaned-up strings to numeric values.Therefore, the values should be numeric now.
+
+---
+
+### Question 8
+
+```{r q8}
+library(skimr)
+Nunique = apply(market,2,n_unique)
+col = colnames(market)[Nunique == 2]
+tbl = apply(market[,col],2,table)
+ratio = apply(market[,col],2,mean)
+```
+
+```{r Nunique}
+Nunique
+```
+**Nunique**: The number of unique value in each character variable.
+```{r col}
+col
+```
+**col**: The name of each character variable which contains only 2 unique values.
+```{r tbl}
+tbl
+```
+**tbl**: To count the number of 0 and 1 in each character variable in `col` make them a data.frame.
+```{r ratio}
+ratio
+```
+**ratio**: The ratio of 1 in each character variable in `col`.
+
+---
+
+### Question 9
+
+```{r q9-1}
+myf = function(var,byvar)
+{
+    by = unique(byvar)
+    mout = NULL
+    for (i in by) {
+        s = subset(var,byvar == i)
+        m = colMeans(s)
+        mout = cbind(mout,m)
+    }
+    colnames(mout) = by
+    mout
+}
+```
+
+```{r q9-2}
+varlist = c("MntWines","MntSweetProducts",
+            "MntMeatProducts","MntFishProducts",
+            "MntGoldProds")
+colspec = c(4,2,1,5,8)
+tbl = myf(subset(market,,varlist),market$Education)
+```
+
+```{r q9-3}
+tbl
+barplot(tbl, beside = T, col = colspec)
+legend("topright", inset = c(0,0), legend = varlist, 
+       col = colspec, pch = 16, cex = 1.1)
+```
+
+```{r q9-4}
+agegrp = ifelse(market$Year_Birth < 1960,"<1960",
+                ifelse(market$Year_Birth < 1970,"[1960,1970)",
+                       ifelse(market$Year_Birth < 1980,"[1970,1980)",">=1980")))
+```
+
+**agegrp** shows how when every customer is born and seperates them into 4 groups, which are people who are born before 1960, after 1980, between 1960 and 1970, and between 1970 and 1980.
+
+```{r agegrp}
+agegrp
+
+table(agegrp)
+```
+
+```{r q9-5}
+varlist2 <- c("Kidhome", "Teenhome")
+tbl2 = myf(subset(market,,varlist2),agegrp)
+```
+
+```{r tbl2}
+tbl2
+```
+**tbl2**(just to distinguish from tbl) shows people from each age group have the average number of kids or teenagers in home.
+
+```{r tbl2_plot}
+tbl2
+barplot(tbl2, beside = T, col = colspec[0:2])
+legend("topright", inset = c(0,0), legend = varlist2, 
+       col = colspec[0:2], pch = 16, cex = 1.1)
+```

@@ -1,0 +1,423 @@
+---
+title: "Financial Big Data HW5"
+author: '109090046'
+date: "2023-03-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      comment = "", 
+                      dev.args = list(bg = 'lavender',                                       pointsize = 11))
+
+library(tidyverse)
+library(nycflights13)
+library(magrittr)
+library(kableExtra)
+ptable = function(df,digits = getOption("digits"),size = 14){
+  df %>% knitr::kable(digits = digits) %>% 
+    kable_classic(lightable_options = c("striped", "hover", "condensed"),
+                  fixed_thead = list(enabled = T, 
+                                     background = "lavender"),
+                  font_size = size, full_width = F,
+                  html_font = "helvetica")
+}
+```
+
+---
+
+Given the ‘mpg’ dataset
+
+## Q1.
+Select all the numeric variables and calculate the following statistics of each variable: (1) the mean, (2) the maximum, (3) the 25% quantile
+
+```{r}
+data(mpg)
+
+# Select the numeric variables
+numeric_vars <- mpg %>% select_if(is.numeric)
+
+# Use summary() and convert it to dataframe
+stats <- do.call(cbind, lapply(numeric_vars, summary))
+
+stats[c("Mean", "Max.", "1st Qu."),] %>% ptable()
+```
+
+---
+
+## Q2.
+Select the ‘hwy’ variable and calculate (1) the 6 summary statistics: Min., 1st Qu., Median, Mean, 3rd Qu., and Max. (2) the value of the 143-th element
+
+```{r}
+stats_hwy <- data.frame(unclass(summary(mpg$hwy)), check.names = FALSE) 
+colnames(stats_hwy)[1] <- "hwy summary statistics"
+stats_hwy %>% ptable()
+
+cat("the value of the 143-th element is", mpg$hwy[143], "\n")
+```
+
+---
+
+## Q3. 
+Select all the character variables and use the `str_count()` function to calculate the number of character of the longest element of each character variable. (You need to find out how to use the `str_count()` function.)
+
+```{r}
+chr_vars <- mpg %>% select_if(is.character)
+
+library(stringr)
+max_lengths <- chr_vars %>% sapply(function(x) max(str_count(x)))
+
+max_lengths %>% ptable()
+```
+
+---
+
+## Q4.
+How can we use the `select()` function to obtain the same result as the following command?
+
+```{r}
+mpg %>% relocate(where(is.character)) %>% head() %>% ptable()
+```
+
+**ANS**
+```{r}
+mpg %>% select(where(is.character), everything()) %>% head() %>% ptable()
+```
+
+What function should we use to replace the ‘…’ part in the following command to get the same result as in the previous command?
+```{r}
+mpg %>% relocate(-where(is.numeric)) %>% head() %>% ptable()
+```
+
+---
+
+## Q5.
+Given `a = mpg %>% slice(1:20)`.
+
+```{r}
+a = mpg %>% slice(1:20)
+a %>% ptable()
+```
+
+Please use the `slice()` function to move the last rows of `a` to the front? 
+
+```{r}
+a %>% slice(n(), 1:(n()-1)) %>% ptable()
+```
+
+Please use the `slice()` function to move all the rows with even row numbers of `a` to the front?
+
+```{r}
+a %>% slice(c(seq(2, n(), by = 2), seq(1, n(), by = 2))) %>% ptable()
+```
+
+Please use brackets `[]` to redo these two exercise. 
+
+```{r}
+# move the last rows of `a` to the front
+a[c(nrow(a), 1:(nrow(a)-1)), ] %>% ptable()
+
+# move all the rows with even row numbers of `a` to the front?
+a[c(seq(2, nrow(a), by = 2), seq(1, nrow(a), by = 2)), ] %>% ptable()
+```
+
+Again please use the ‘subset()’ function to redo these two exercise.
+
+```{r}
+# move the last rows of `a` to the front
+rbind(subset(a, row.names(a) == nrow(a)), subset(a, row.names(a) != nrow(a))) %>% ptable()
+
+# move all the rows with even row numbers of `a` to the front?
+rbind(subset(a, seq(nrow(a)) %% 2 == 0), subset(a, seq(nrow(a)) %% 2 == 1)) %>% ptable()
+```
+
+## Q6.
+After sorting `mpg` based on the `displ` and the `hwy` variables:
+
+```{r}
+mpg_sorted <- mpg %>% arrange(displ,hwy) 
+mpg_sorted[1:20,] %>% ptable()
+```
+
+how can we unsort its output (i.e., to go back to the original `mpg`) using the `rowid_to_column()` function?
+
+```{r}
+# Store mpg with row id in a new variable
+mpg_rowid <- mpg %>% rowid_to_column("original")
+
+mpg_sorted <- mpg_rowid %>% arrange(displ, hwy)
+mpg_unsorted <- mpg_sorted %>% arrange(original) %>% select(-original)
+
+mpg_unsorted[1:20, ] %>% ptable()
+```
+
+Also, how does the result of the following command differ from the one from the previous command?
+
+```{r}
+mpg %>% arrange(hwy,displ) %>% ptable()
+```
+
+Comparing to the previous one, this command put `hwy` as first parameter in `arrange`. It means it sorts the mpg primarily based on `hwy`. And then, in each group of rows with the same `hwy`, it sorts based on the `displ`. 
+
+---
+
+## Q7. 
+Please modify the `mpg` dataset as follows:
+
+*   Modify the values of the `drv` variable as follows: if the value of `drv` is equal to `4` and the value of the `year` variable is equal to 1999, then change the value of `drv` to missing value.
+
+*   Create a new variable with the name `gas_performace` as follows: if the difference of the two variables `hwy` and `cty` is small than 10, then `gas_performace` has the character value `good`. Otherwise, its value is `bad`.
+
+*   Place the two variables `drv` and `gas_performace` before the `displ` variable.
+
+```{r}
+mpg_modified <- mpg %>% mutate(drv = ifelse(drv == "4" & year == 1999, NA, drv))
+
+mpg_modified <- mpg_modified %>% mutate(gas_performance = ifelse(abs(hwy - cty) < 10, "good", "bad"))
+
+mpg_modified <- mpg_modified %>% relocate(drv, gas_performance, .before = displ)
+
+mpg_modified[1:20, ] %>% ptable()
+```
+
+---
+
+## Q8.
+Please use the `filter()` functions to select the 10000-th, the 20000-th, and the 30000-th rows, … from the `flights` dataset. Then use the `slice()` functions to do the same. 
+
+```{r}
+# use the `filter()` functions to select the 10000-th, the 20000-th, and the 30000-th rows, …
+flights_rowid <- flights %>% rowid_to_column()
+
+filter10000 <- flights_rowid %>% filter(rowid %% 10000 == 0) %>% select(-rowid)
+
+filter10000[1:20,] %>% ptable()
+
+# use the `slice()` functions to select the 10000-th, the 20000-th, and the 30000-th rows, …
+slice10000 <- flights %>% slice(seq(10000, nrow(flights), by =10000))
+
+slice10000[1:20, ] %>% ptable()
+```
+
+Finally, please select the 3rd, 6th, 9th, … variables from the `flights` dataset.
+
+```{r}
+# use the `filter()` functions to select the 3rd, 6th, 9th, …
+filter3 <- flights_rowid %>% filter(rowid %% 3 == 0) %>% select(-rowid)
+
+filter3[1:20,] %>% ptable()
+
+# use the `slice` functions to select the 3rd, 6th, 9th, …
+slice3 <- flights %>% slice(seq(3, nrow(flights), by =3))
+
+slice3[1:20, ] %>% ptable()
+
+```
+
+---
+
+## Q9.
+The values of the `trans` variable of the `mpg` dataset are rather complicated like `auto(av)`, `auto(l3)`, …, `manual(m5)`, `manual(m6)`. Please use the `str_starts()` function to simplify the values of `trans` variable by changing all the values started with `auto…` to simply `auto` and all the values started with `manual…` to simply `manual`.
+
+```{r}
+simp_trans <- mpg %>% mutate(trans = ifelse(str_starts(trans, "auto"), "auto", "manual"))
+
+simp_trans[1:20, ] %>% ptable()
+```
+
+---
+
+## Q10.
+Please first execute the following commands (which will be explained in the class):
+
+```{r}
+nsb = 4  # The number of State Banks 
+npb = 5  # The number of Private Banks 
+nfb = 3  # The number of Foreign Banks 
+nyear = 4
+nn = (nsb+npb+nfb)*nyear
+year = 2019:(2019+nyear-1)
+
+# The given average numbers 1000, 1500, and 2000 of consumer loans 
+# for the 3 types of banks and for all years
+# which grow at the 3% rate per year
+CLn0 = c(rep(1000,nsb),rep(1500,npb),rep(2000,nfb)) %x% 
+  seq(1,length = nyear,by=0.03)
+# The given average numbers 200, 150, and 100 of business loans 
+# for the 3 types of banks and for all years
+# which grow at the 5% rate per year
+BLn0 = c(rep(200,nsb),rep(150,npb),rep(100,nfb)) %x% 
+  seq(1,length = nyear,by=0.05)
+
+# The given average default rates 1%, 2% and 0.5% of consumer loans 
+# for the 3 types of banks and for all years
+# which grow at the 4% rate per year
+CLd0 = c(rep(0.01,nsb),rep(0.02,npb),rep(0.005,nfb)) %x% 
+  seq(1,length = nyear,by=0.04)
+# The given average default rates 3%, 4% and 4% of business loans 
+# for the 3 types of banks and for all years
+# which grow at the 6% rate per year
+BLd0 = c(rep(0.03,nsb),rep(0.04,npb),rep(0.04,nfb)) %x% 
+  seq(1,length = nyear,by=0.06)
+
+set.seed(123)
+# Simulating the number of consumer loans for all banks and for all years
+# from Poisson distribution with the mean parameter CLn0
+CLn = rpois(nn,CLn0)  
+# Simulating the number of business loans for all banks and for all years
+# from Poisson distribution with the mean parameter BLn0
+BLn = rpois(nn,BLn0)
+# Simulating the number of defaulted consumer loans for all banks and for all years
+# from binomial distribution with n parameter CLn and p parameter CLd0
+CLd = rbinom(nn,CLn,CLd0)
+# Simulating the number of defaulted business loans for all banks and for all years
+# from binomial distribution with n parameter BLn and p parameter BLd0
+BLd = rbinom(nn,BLn,BLd0)
+
+CLPD = 100*CLd/CLn
+BLPD = 100*BLd/BLn
+```
+
+The main result of the previous commands are two vectors ‘CLPD’ and ‘BLPD’ which contain the simulated data on the default rates of the consumer loans and the business loans for 12 banks (in 2 groups: state banks, private banks, and foreign banks) over 4 years: 2019, 2020, 2021, and 2022.
+
+Then execute the following commands
+```{r}
+PD = rbind(CLPD,BLPD) %>% as.vector()
+
+PDW = PD %>% matrix(nsb+npb+nfb,2*nyear,byrow = T) 
+colnames(PDW) = kronecker(as.character(year),c("CL","BL"),paste0)
+
+PD %>% ptable()
+PDW %>% ptable()
+```
+
+where we combine the two vectors `CLPD` and `BLPD` to form a long vector `PD` and a matrix `PDW` in different formats: `PD` has the long form while `PDW` has the wide form. Please examine closely how `PD` and `PDW` differ from each.
+
+**ANS:**
+
+`PD` is a long vector that contains the simulated data on the default rates of the consumer loans and the business loans for all 12 banks over the 4 years. The first half of the vector corresponds to the default rates for consumer loans(CL), while the second half corresponds to the default rates for business loans(BL).
+
+
+On the other hand, `PDW` is a matrix with 2*n year columns and (nsb+npb+nfb) rows. The columns are labeled with the year and loan type, while the rows correspond to each bank. The first nsb rows correspond to the state banks, the next npb rows correspond to the private banks, and the last nfb rows correspond to the foreign banks.
+
+In summary, PD is a long vector that contains all the default rates, while PDW is a matrix that organizes the default rates by bank and year.
+
+
+Execute the following commands
+```{r}
+B1 = expand_grid(bank = c(paste0("SB",1:nsb),
+                          paste0("CB",1:npb),
+                          paste0("FB",1:nfb)),
+                 year,
+                 loantype = c("CL",'BL'))
+
+B2 = expand_grid(bank = c(paste0("SB",1:nsb),
+                          paste0("CB",1:npb),
+                          paste0("FB",1:nfb)),
+                 year)
+
+B3 = tibble(bank = c(paste0("SB",1:nsb),
+                     paste0("CB",1:npb),
+                     paste0("FB",1:nfb)))
+
+B1 %>% ptable()
+B2 %>% ptable()
+B3 %>% ptable()
+```
+
+please study how the `expand_grid()` function works and then examine the contents of the three tibbles `B1`, `B2` and `B3`. These tibbles essentially contain the same data but in different formats.
+
+**ANS:**
+
+The `expand_grid()` function is used to create a tibble with all possible combinations of the input vectors. In this case, B1 and B2 are created using `expand_grid()` with different input vectors to generate different combinations.
+
+`B1` is a tibble that contains all possible combinations of bank, year, and loan type. The bank column contains the names of all the state banks (SB1-SB4), private banks (CB1-CB5), and foreign banks (FB1-FB3). The year column contains the years 2019 to 2022. The loan type column contains the two loan types: CL and BL.
+
+`B2` is a tibble that contains all possible combinations of bank and year. The bank column and year column are the same as in B1, but there is no loan type column.
+
+`B3` is a tibble that contains only the bank names. The bank column contains the names of all the state banks (SB1-SB4), private banks (CB1-CB5), and foreign banks (FB1-FB3). There are no columns for year or loan type.
+
+In summary, `B1` contains all possible combinations of bank, year, and loan type, `B2` contains all possible combinations of bank and year, and `B3` contains only the bank names.
+
+Finally we combine all the results as follows:
+```{r}
+BankData1 = B1 %>% mutate(PD,
+                          banktype = substr(B1$bank,1,2))
+
+BankData2 = B2 %>% mutate(CLPD,
+                          BLPD,
+                          banktype = substr(B2$bank,1,2))
+
+BankData3 = B3 %>% mutate(data.frame(PDW,check.names=F),
+                          banktype = substr(B3$bank,1,2),
+                          check.names = F)
+
+BankData1 %>% ptable()
+BankData2 %>% ptable()
+BankData3 %>% ptable()
+```
+
+Please check the resulting tibbles `BankData1`, `BankData2` and `BankData3`. These tibbles again contain the same data but in different formats. `BankData1` is the long form, `BankData3` is the wide form, and `BankData2` is something in between. Note that the the wide form `BankData2` is easier to read than the long form `BankData1`.
+
+Please execute the following two commands:
+```{r}
+BankData1 %$% tapply(PD,list(bank,loantype),mean) %>% round(2) %>% ptable()
+BankData2 %$% tibble(CL = tapply(CLPD,bank,mean), 
+                     BL = tapply(BLPD,bank,mean)) %>% round(2) %>% ptable()
+```
+
+The resulting tibbles are almost the same. But we should note the long form `BankData1` is easier to work with than the wide form `BankData2`. Please calculate the column means from the resulting tibbles.
+
+```{r}
+colMeans(BankData1 %$% tapply(PD, list(bank, loantype), mean) %>% round(2)) %>% ptable()
+colMeans(BankData2 %$% tibble(CL = tapply(CLPD, bank, mean), 
+                              BL = tapply(BLPD, bank, mean)) %>% 
+                              round(2)) %>% ptable()
+```
+
+Also, can you get the same table from the widest form `BankData3`. It seems impossible (though you need much more advanced functions). This conclusion shows that the wide form is generally not easy to conduct data analysis.
+
+Given
+```{r}
+BankData2 %$% tapply(CLPD,bank,mean) %>% barplot()
+BankData2 %$% tapply(CLPD,year,mean) %>% barplot()
+```
+
+please use `BankData1` to get the same results.
+```{r}
+BankData1 %>% 
+  group_by(bank) %>% 
+  summarize(mean_CLPD = mean(PD[loantype == "CL"])) %>%
+  ggplot(aes(x = bank, y = mean_CLPD)) + 
+  geom_bar(stat = "identity") + 
+  xlab("Bank") + 
+  ylab("Mean Default Rate for Commercial Loans (%)") + 
+  ggtitle("Mean Default Rates for Commercial Loans by Bank") +
+  theme_classic()
+
+BankData1 %>% 
+  group_by(year) %>% 
+  summarize(mean_CLPD = mean(PD[loantype == "CL"])) %>%
+  ggplot(aes(x = year, y = mean_CLPD)) + 
+  geom_bar(stat = "identity") + 
+  xlab("Year") + 
+  ylab("Mean Default Rate for Commercial Loans (%)") + 
+  ggtitle("Mean Default Rates for Commercial Loans by Year") +
+  theme_classic()
+```
+
+Given
+```{r}
+BankData1 %$% tapply(PD,list(loantype,year),mean) %>% ptable()
+BankData1 %$% tapply(PD,list(year,loantype),mean) %>% ptable()
+```
+
+please use `BankData2` to get the same results.
+```{r}
+BD2_wide <- BankData2 %$% rbind (tapply(BLPD, year,mean), tapply(CLPD, year,mean)) 
+rownames(BD2_wide) <- c("BL", "CL")
+
+BD2_wide %>% ptable()
+
+t(BD2_wide) %>% ptable()
+```

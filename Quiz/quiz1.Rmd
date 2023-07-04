@@ -1,0 +1,70 @@
+---
+title: "quiz"
+author: '109090046'
+date: "2023-03-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Q1
+
+```{r 1}
+library(tidyverse)
+ls(mpg)
+
+```
+
+## Q2
+
+```{r q2}
+library(skimr)
+Nunique = apply(mpg,2,n_unique)
+Nunique["class"]
+```
+
+##Q3
+
+```{r}
+plot(x=mpg$displ, y=mpg$hwy)
+```
+
+## Q4
+
+```{r}
+plot(x=mpg$displ, y=mpg$hwy, col = ifelse(mpg$year == 1999, 'red', 'black'))
+```
+
+## Q5
+
+```{r}
+barplot(table(mpg$class))
+```
+
+## Q6
+
+```{r}
+myf = function(var,byvar)
+{
+    by = unique(byvar)
+    mout = NULL
+    for (i in by) {
+        s = subset(var,byvar == i)
+        m = colMeans(s)
+        mout = cbind(mout,m)
+    }
+    colnames(mout) = by
+    mout
+}
+par(mar = c(4,4,6,3))
+colspec = c(4,8)
+
+varlist = c('hwy', 'cty')
+tbl = myf(subset(mpg,,varlist),mpg$class)
+
+barplot(tbl, beside = T, col = colspec)
+legend("topright", inset = c(0,0), legend = varlist, 
+       col = colspec, pch = 16, cex = 1.1)
+```

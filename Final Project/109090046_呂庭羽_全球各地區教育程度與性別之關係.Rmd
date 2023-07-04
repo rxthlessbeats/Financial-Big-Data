@@ -1,0 +1,854 @@
+---
+title: "全球各地區教育程度與性別之關係"
+author: "109090046 呂庭羽 單獨完成"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::downcute:
+    self_contained: true
+    default_style: "dark"
+    downcute_theme: "default"
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+## Global options
+knitr::opts_chunk$set(cache = TRUE)
+library(DiagrammeR)
+library(tidyverse)
+library(readr)
+library(DT)
+library(reshape2)
+library(gridExtra)
+library(corrplot)
+library(patchwork)
+```
+
+```{css, echo=FALSE}
+p {
+  font-size: 17px;
+}
+```
+
+>使用`rmdformats::downcute`，左方有按鈕可以開關深色模式
+
+# 一、動機
+
+隨著世界各國的經濟發展和狀況逐漸穩定，各國正朝著文民的道路前進，兩性不平等的議題卻不斷地被討論。而教育畢竟是一個文民社會的基石，因此我想從教育的角度來觀察分析，探討兩性受教權是否有不平等的關係。
+
+為了探討兩性教育權之平等與否，我想要利用各教育階段的**毛入學率**，分析各區域的男女教育程度差別比較，以及各區域男女教育程度的年度趨勢。
+
+> **毛入學率(Gross Enrollment Ratio, GER) = 實際入學人數 / 有能力的入學人數。**
+
+# 二、研究主題
+
+利用各區域在四大教育階段(學前、小學、初中、高中)的男女各別受教比例，以及各區域(東南非、中西非、阿拉伯世界、中歐和波羅的海、東亞和太平洋、南亞、北美、拉丁美洲和加勒比、歐洲)受教比例的年度趨勢變化，進行以下分析：
+
+(1)進行假設檢定，以驗證各區域，男女毛入學率是否有差異
+
+(2)男女毛入學率與教育階段的關聯(教育階段越高是不是差越多)
+
+(3)觀察男女毛入學率差別與地區的關聯
+
+(4)觀察時間改變與男女毛入學率差別的關係
+
+(5)根據上述觀察做出分析結論，並給出個人見解
+
+# 三、分析架構
+
+```{r}
+grViz("digraph {
+  graph [layout = dot, rankdir = TB]
+  bgcolor = '#2f3136'
+  node [shape = rectangle, width = 2.5, length = 3, style=filled, fillcolor = gray88, color = azure4, penwidth = 1.5, fontsize = 16] 
+  edge [style = line, arrowsize = 1, arrowhead = normal, color = grey]
+  rec0 [label = '資料收集']
+  rec1 [label = '資料整理']
+  rec4 [label = '表格化呈現']
+  rec5 [label = '資料處理']
+  rec9 [label = '圖表結果分析']
+  rec10 [label = '總結']
+  rec11 [label = '個人觀點']
+  node [shape = rectangle, width = 2.5, length = 2.5, style=filled , fillcolor = '#68b4f7', color = '#385AE3']
+  rec2 [label = '各地區類別資料']
+  rec3 [label = '4階段類別資料']
+  rec6 [label = '假設檢定']
+  rec7 [label = '資料視覺化']
+  rec8 [label = '相關性分析']
+  # edge definitions with the node IDs
+  rec0 -> rec1
+  rec1 -> rec2 -> rec4;
+  rec1 -> rec3 -> rec4;
+  rec4 -> rec5;
+  rec5 -> rec6 -> rec9;
+  rec5 -> rec7 -> rec9;
+  rec5 -> rec8 -> rec9;
+  rec9 -> rec10 -> rec11;
+  }", 
+  height = 650, width = 800)
+```
+
+> **使用`DiagrammeR::grViz()`，做出分析架構圖**
+
+# 四、資料收集
+
+> ***資料來源: [Data Bank](https://databank.worldbank.org/)***
+
+從世界銀行的資料庫Data Bank中，藉由操作系統可以蒐集各年度，世界各區域，四大教育階段，男女各別毛入學率。
+
+利用**互動式數據表**，可以選擇每頁顯示的行數，並在多頁之間進行跳轉。也可以選擇某一列進行排序，在右上方還有一個搜尋欄位供使用者進行篩選。
+
+```{r, }
+df <- read_csv('GER area.csv', show_col_types = FALSE)
+
+datatable(df, options = list(
+  lengthMenu = c(2, 10, 25, 50, 100),  # Specify the options for entries per page
+  pageLength = 2  # Set the initial number of entries per page
+))
+```
+
+> **使用`DT::datatable()`，做出互動式數據表**
+
+# 五、資料前處理
+
+因為從Data Bank下載的資料過於凌亂，於是做了以下處理:
+
+-   `reshape2::melt()`將原始的寬資料轉成長資料
+
+-   `grepl`將性別和教育程度從`Series Name`分開並移出
+
+-   `gsub`將`Education_Level`中多餘的字詞刪除
+
+-   `dpylr::select()`重新排列Column
+
+-   整理資料型態
+
+```{r, warning=FALSE}
+# `reshape2::melt()`將原始的寬資料轉成長資料
+df_long <- melt(df, id.vars = c("Series Name", "Country Name"), variable.name = "Year", value.name = "GER")
+
+# `grepl`將性別和教育程度從`Series Name`分開並移出
+df_long$Gender <- ifelse(grepl("female", df_long$`Series Name`), "Female", "Male")
+
+# `gsub`將`Education_Level`中多餘的'School enrollment'字詞刪除 
+df_long$Education_Level <- gsub("School enrollment, ", "", df_long$`Series Name`) 
+
+# `gsub`將`Education_Level`中多餘的'(% gross)'字詞刪除
+df_long$Education_Level <- gsub(", (male|female) \\(% gross\\)", "", df_long$Education_Level)  
+
+# 改column名字
+names(df_long)[names(df_long) == "Series Name"] <- "series_name"
+names(df_long)[names(df_long) == "Country Name"] <- "Region"
+
+# 刪除`series_name`
+df_long$series_name <- NULL
+
+# 刪除沒有要分析的地區名
+drop_labels <- c('Europe & Central Asia', 'European Union', 'Sub-Saharan Africa', 'Middle East & North Africa')
+df_long <- subset(df_long, !Region %in% drop_labels)
+
+# 重設Index
+rownames(df_long) <- NULL
+
+# 將`Education_Level`中的'..' 換成 NA  
+df_long$Education_Level <- replace(df_long$Education_Level, df_long$Education_Level == "..", NA)
+
+#  GER, Year轉成數字
+df_long$GER <- as.numeric(df_long$GER)
+df_long$Year <- as.numeric(as.character(df_long$Year))
+
+# 重新排列columns順序 
+df_long <- df_long %>% 
+  select(Education_Level, everything(), -GER, GER)
+
+# 加入中文 
+df_long$Education_Level <- replace(df_long$Education_Level, df_long$Education_Level== "preprimary", "學前")
+df_long$Education_Level <- replace(df_long$Education_Level, df_long$Education_Level== "primary", "小學")
+df_long$Education_Level <- replace(df_long$Education_Level, df_long$Education_Level== "secondary", "初中")
+df_long$Education_Level <- replace(df_long$Education_Level, df_long$Education_Level== "tertiary", "高中")
+
+df_long$Region <- replace(df_long$Region, df_long$Region== "Africa Eastern and Southern", "東南非")
+df_long$Region <- replace(df_long$Region, df_long$Region== "Africa Western and Central", "中西非")
+df_long$Region <- replace(df_long$Region, df_long$Region== "Arab World", "阿拉伯")
+df_long$Region <- replace(df_long$Region, df_long$Region=="Central Europe and the Baltics", "中歐波羅的海")
+df_long$Region <- replace(df_long$Region, df_long$Region== "East Asia & Pacific", "東亞")
+df_long$Region <- replace(df_long$Region, df_long$Region== "Euro area", "歐洲")
+df_long$Region <- replace(df_long$Region, df_long$Region== "Latin America & Caribbean", "拉丁美洲")
+df_long$Region <- replace(df_long$Region, df_long$Region== "North America", "北美")
+df_long$Region <- replace(df_long$Region, df_long$Region== "South Asia", "南亞")
+df_long$Region <- replace(df_long$Region, df_long$Region== "World", "世界")
+
+datatable(df_long)
+```
+
+> **使用dpylr::select()，整理順序**
+
+# 六、資料分析
+
+## 6-1. 假設檢定
+
+### 1. 迴歸模型 {.tabset .tabset-fade .tabset-pills}
+
+利用迴歸模型`lm`，以95%的信心水準，對各地區做迴歸模型檢定 將男生設為1女生設為0
+
+H0: 係數為0 (性別對毛入學率沒有顯著影響)
+
+H1: 係數不為0 (性別對毛入學率有影響)
+
+判斷條件: p-value \<= 0.05 拒絕 H0
+
+我先寫一個function`lm_test`，以算出各地區的p-value和判斷
+
+```{r}
+# 列出地區名字
+regions <- unique(df_long$Region)
+
+# 男生 1 女生 0
+df_long$IsMale <- as.integer(df_long$Gender == 'Male')
+
+# 對各地區做迴歸模型檢定
+lm_test <- function(region){
+  
+  # 取出只包含輸入的地區資料
+  df_subset <- subset(df_long, Region == region)
+  
+  # 迴歸模型檢定
+  fit <- lm(GER ~ IsMale, data = df_subset)
+  summary_lm <- summary(fit)
+
+  cat("p-value:", summary_lm$coefficients[, "Pr(>|t|)"][2], "\n")
+  if (summary_lm$coefficients[, "Pr(>|t|)"][2] > 0.05)   {cat("不拒絕H0，性別對毛入學率沒有顯著影響")}
+  else {cat("拒絕H0，性別對毛入學率有影響")}
+}
+```
+
+#### 東南非
+
+```{r}
+lm_test(regions[1])
+```
+
+#### 中西非
+
+```{r}
+lm_test(regions[2])
+```
+
+#### 阿拉伯
+
+```{r}
+lm_test(regions[3])
+```
+
+#### 中歐波羅的海
+
+```{r}
+lm_test(regions[4])
+```
+
+#### 東亞
+
+```{r}
+lm_test(regions[5])
+```
+
+#### 歐洲
+
+```{r}
+lm_test(regions[6])
+```
+
+#### 拉丁美洲
+
+```{r}
+lm_test(regions[7])
+```
+
+#### 北美
+
+```{r}
+lm_test(regions[8])
+```
+
+#### 南亞
+
+```{r}
+lm_test(regions[9])
+```
+
+#### 世界
+
+```{r}
+lm_test(regions[10])
+```
+
+### 2. 單尾T檢定 {.tabset .tabset-fade .tabset-pills}
+
+利用迴歸模型`t.test`，以95%的信心水準，對各地區做單尾T檢定
+
+H0: 男生的毛入學率沒有顯著高於女生
+
+H1: 男生的毛入學率顯著高於女生
+
+判斷條件: p-value \<= 0.05 拒絕 H0
+
+我先寫一個function`t_test`，以算出各地區的p-value和判斷
+
+```{r}
+# 列出地區名字
+regions <- unique(df_long$Region)
+
+# 對所有地區跑單尾T檢定
+t_test <- function(region){
+  
+  # 取出只包含輸入的地區資料
+  df_subset <- subset(df_long, Region == region)
+  
+  # 將男女資料分開
+  male_ger <- df_subset[df_subset$Gender == 'Male', 'GER']
+  female_ger <- df_subset[df_subset$Gender == 'Female', 'GER']
+  
+  # 使用單尾T檢定
+  ttest <- t.test(male_ger, female_ger, alternative = "greater")
+  
+  cat("p-value:", ttest$p.value, "\n")
+  if (ttest$p.value > 0.05) {cat("不拒絕H0，男生的毛入學率沒有顯著高於女生")}
+  else {cat("拒絕H0，男生的毛入學率顯著高於女生")}
+}
+```
+
+#### 東南非
+
+```{r}
+t_test(regions[1])
+```
+
+#### 中西非
+
+```{r}
+t_test(regions[2])
+```
+
+#### 阿拉伯
+
+```{r}
+t_test(regions[3])
+```
+
+#### 中歐波羅的海
+
+```{r}
+t_test(regions[4])
+```
+
+#### 東亞
+
+```{r}
+t_test(regions[5])
+```
+
+#### 歐洲
+
+```{r}
+t_test(regions[6])
+```
+
+#### 拉丁美洲
+
+```{r}
+t_test(regions[7])
+```
+
+#### 北美
+
+```{r}
+t_test(regions[8])
+```
+
+#### 南亞
+
+```{r}
+t_test(regions[9])
+```
+
+#### 世界
+
+```{r}
+t_test(regions[10])
+```
+
+### 3. 圖表化 {.tabset .tabset-fade .tabset-pills}
+
+#### 迴歸模型
+
+```{r}
+regions_zh <- c('東南非', '中西非', '阿拉伯', '中歐波羅的海', '東亞', '歐洲', '拉丁美洲', '北美', '南亞', '世界')
+lm_list <- c()
+
+for (region in regions){
+  # 取出只包含輸入的地區資料
+  df_subset <- subset(df_long, Region == region)
+  
+  # 迴歸模型檢定
+  fit <- lm(GER ~ IsMale, data = df_subset)
+  summary_lm <- summary(fit)
+  # 加入list
+  lm_list <- c(lm_list, summary_lm$coefficients[, "Pr(>|t|)"][2])
+}
+
+lm_df <- data.frame(Region = regions_zh, p_value = lm_list)
+
+ggplot(lm_df, aes(x = reorder(Region, -p_value), y = p_value, fill = Region)) +
+  geom_bar(stat = "identity", alpha= 0.8) +
+  labs(title = "迴歸模型p-value長條圖", x = "地區", y = "p-values") +
+  geom_hline(yintercept = 0.05, linetype = "longdash", color = "red", linewidth = 1.2) +
+  theme_grey()
+```
+
+此圖，我們將迴歸模型對各地p-value做成圖表，並且以紅色虛線作為0.05的門檻，可以看到的是各地區的pvalue都是大於0.05很多的，也就是說性別對毛入學率沒有顯著影響。
+
+#### 單尾T檢定
+
+```{r}
+t_list <- c()
+
+for (region in regions){
+  # 取出只包含輸入的地區資料
+  df_subset <- subset(df_long, Region == region)
+  
+  # 將男女資料分開
+  male_ger <- df_subset[df_subset$Gender == 'Male', 'GER']
+  female_ger <- df_subset[df_subset$Gender == 'Female', 'GER']
+  
+  # 使用單尾T檢定
+  ttest <- t.test(male_ger, female_ger, alternative = "greater")
+  
+  # 加入list
+  t_list <- c(t_list, ttest$p.value)
+}
+
+t_df <- data.frame(Region = regions_zh, p_value = t_list)
+
+ggplot(t_df, aes(x = reorder(Region, -p_value), y = p_value, fill = Region)) +
+  geom_bar(stat = "identity", alpha= 0.8) +
+  labs(title = "單尾T檢定p-value長條圖", x = "地區", y = "p-values") +
+  geom_hline(yintercept = 0.05, linetype = "longdash", color = "red", linewidth = 1.2) +
+  theme_grey()
+```
+
+此圖，我們將迴歸模型對各地p-value做成圖表，並且以紅色虛線作為0.05的門檻，可以看到的是各地區的pvalue都是大於0.05很多的，也就是說男生的毛入學率沒有顯著高於女生。
+
+> **利用ggplot2::ggplot()畫長條圖**
+
+## 6-2. 資料視覺化
+
+### 1. 男女毛入學率與教育階段的關聯 {.tabset .tabset-fade .tabset-pills}
+
+在這邊我們想要觀察的是男女入學率是否在越高的教育階段，會有越大的差別
+
+所以我們創造了一個新的column`ratio`，用同年度、同區域、同教育階級的男GER/女GER，以利於更方便的觀察
+
+-   若是數值大於1，代表者男受教比例大於女
+
+-   若是數值小於1，代表者男受教比例小於女
+
+```{r}
+df_long$IsMale <- NULL
+
+df_spread <- df_long %>% 
+  spread(key = Gender, value = GER)
+
+df_spread <- df_spread %>%
+  mutate(ratio = Male / Female)
+
+df_final <- df_spread %>%
+  select(-Male, -Female)
+
+datatable(df_final, 
+          options = list(pageLength = 6, lengthMenu = c(6, 10, 15, 20)))
+```
+
+```{r}
+# Define the order of education levels
+education_levels <- c("學前", "小學", "初中", "高中")
+
+# Create a list to store plots
+plot_list <- list()
+
+# Loop over unique regions
+for (region in regions_zh) {
+  
+  # Filter data for this region
+  df_region <- df_final %>%
+      filter(Region == region)
+  
+  # Convert Education_Level to ordered factor
+  df_region$Education_Level <- factor(df_region$Education_Level, levels = education_levels, ordered = TRUE)
+  
+  # Convert Year to factor
+  df_region$Year <- as.factor(df_region$Year)
+
+  # Create a line plot for this region with all years
+  p <- ggplot(df_region, aes(x = Education_Level, y = ratio, group = Year, color = Year)) +
+      geom_line() +
+      geom_point() +
+      labs(title = paste(region),
+           x = "Education Level",
+           y = "GER Ratio",
+           color = "Year") +
+      theme_grey()
+  
+  # Add the plot to the list
+  plot_list[[region]] <- p
+}
+```
+
+#### 東南非
+
+```{r, results='hide'}
+plot_list[1]
+```
+
+#### 中西非
+
+```{r, warning=FALSE, results='hide'}
+plot_list[2]
+```
+
+#### 阿拉伯
+
+```{r, results='hide'}
+plot_list[3]
+```
+
+#### 中歐波羅的海
+
+```{r, results='hide', fig.keep='none'}
+plot_list[4]
+```
+
+![](00002c.png)
+
+#### 東亞
+
+```{r, results='hide'}
+plot_list[5]
+```
+
+#### 歐洲
+
+```{r, results='hide'}
+plot_list[6]
+```
+
+#### 拉丁美洲
+
+```{r, results='hide'}
+plot_list[7]
+```
+
+#### 北美
+
+```{r, results='hide'}
+plot_list[8]
+```
+
+#### 南亞
+
+```{r, results='hide'}
+plot_list[9]
+```
+
+#### 世界
+
+```{r, results='hide'}
+plot_list[10]
+```
+
+###  {.unnumbered}
+
+並且發現大部分區域的教育階級越高，女生的毛入學率則是越高，只有非洲區域是相反的。 也發現了學前的受教育的男女比在世界各區域都是差不多的。
+
+> **使用ggplot2::ggplot畫出barplot**
+
+### 2. 觀察時間改變與男女毛入學率差別的關係 {.tabset .tabset-fade .tabset-pills}
+
+我們將會觀察各階段，從2015年開始到2020的男女毛入學率的比率，是否隨著時間的變化而有所影響。
+
+```{r, result="hide", fig.keep="none", warning=FALSE}
+# Create a list to store region plots
+region_plots <- list()
+
+# Loop over unique regions
+for (region in regions_zh) {
+  
+  # Create a list to store education level plots for this region
+  edu_plots <- list()
+
+  # Filter data for this region
+  df_region <- df_final %>%
+      filter(Region == region)
+  
+  # Convert Education_Level to ordered factor
+  df_region$Education_Level <- factor(df_region$Education_Level, levels = education_levels, ordered = TRUE)
+
+  # Loop over unique education levels
+  for (edu_level in education_levels) {
+
+    # Filter data for this education level
+    df_edu_level <- df_region %>%
+      filter(Education_Level == edu_level)
+
+    # Create a line plot for this education level
+    p <- ggplot(df_edu_level, aes(x = Year, y = ratio, color = Year)) +
+        geom_line() +
+        geom_point() +
+        labs(title = paste("Education Level:", edu_level),
+             x = "Year",
+             y = "GER Ratio") +
+        theme_grey() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1),  
+        legend.position = "none")  # Remove legend
+
+    # Add the plot to the list
+    edu_plots[[edu_level]] <- p
+  }
+  
+  # Arrange the plots in a grid for this region
+  region_plots[[region]] <- grid.arrange(grobs = edu_plots, ncol = 2)
+}
+```
+
+#### 東南非
+
+```{r}
+grid.arrange(region_plots[[1]])
+```
+
+#### 中西非
+
+```{r, warning=FALSE}
+grid.arrange(region_plots[[2]])
+```
+
+#### 阿拉伯
+
+```{r}
+grid.arrange(region_plots[[3]])
+```
+
+#### 中歐波羅的海
+
+```{r, fig.keep='none'}
+grid.arrange(region_plots[[4]])
+```
+
+![](000010.png)
+
+#### 東亞
+
+```{r}
+grid.arrange(region_plots[[5]])
+```
+
+#### 歐洲
+
+```{r}
+grid.arrange(region_plots[[6]])
+```
+
+#### 拉丁美洲
+
+```{r}
+grid.arrange(region_plots[[7]])
+```
+
+#### 北美
+
+```{r}
+grid.arrange(region_plots[[8]])
+```
+
+#### 南亞
+
+```{r}
+grid.arrange(region_plots[[9]])
+```
+
+#### 世界
+
+```{r}
+grid.arrange(region_plots[[10]])
+```
+
+###  {.unnumbered}
+
+可以觀察到的一個各地區的共通點是，在高中這個階段，都是斜率向下的，也就是趨向女生的毛入學率比例正在成長。但是若是在其他的教育階段則沒有一個固定的走向。
+
+> **利用grid.arrange()製作多圖合成**
+
+## 6-3. 相關性分析 {.tabset .tabset-fade .tabset-pills}
+
+這邊我們一樣利用男GER/女GER的ratio，以年度作為區分，來觀察在各個教育階段，男女的毛入學率比率是否會互相影響，並取利用相關性以及相關係數熱圖來觀察。
+
+```{r}
+df_wide <- df_final %>%
+  spread(key = Education_Level, value = ratio)
+df_wide <- select(df_wide, Region, Year, 學前, 小學, 初中, 高中)
+
+df_wide %>% datatable()
+```
+
+```{r, results='hide'}
+heatmap_list <- list()
+
+# Exclude 'World' from the data
+df_wide <- df_wide %>%
+  filter(Region != 'World')
+
+# Get the unique years
+years <- unique(df_wide$Year)
+
+# Loop over unique years
+for (year in years) {
+  
+  # Filter data for this year
+  df_year <- df_wide %>%
+      filter(Year == year)
+  
+  # Calculate correlation matrix
+  corr_mat <- cor(df_year[,3:6], use = "pairwise.complete.obs")
+  
+  # Melt the correlation matrix for plotting
+  corr_mat_melted <- melt(corr_mat)
+  
+  # Create a heatmap of the correlation matrix
+  p <- ggplot(corr_mat_melted, aes(x=Var1, y=Var2, fill=value)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = c("#D73027","#FC8D59","#FEE090","#FFFFBF","#E0F3F8","#91BFDB","#4575B4"), name="Pearson\nCorrelation") +
+    theme_minimal() + 
+    theme(axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10)) +
+    coord_fixed() +
+    labs(title = paste(year), x="", y="") +
+    geom_text(aes(Var2, Var1, label = round(value, 2)), color = "black", size = 3)
+  
+  heatmap_list[[as.character(year)]] <- p
+}
+
+plot_combined <- (heatmap_list[[1]] + heatmap_list[[2]]) / 
+                 (heatmap_list[[3]] + heatmap_list[[4]]) /
+                 (heatmap_list[[5]] + heatmap_list[[6]]) +
+  plot_layout(widths = c(5,5), heights = c(7,7,7))
+
+png("output.png", width = 800, height = 600)
+
+print(plot_combined)
+
+dev.off()
+```
+
+![](output.png)
+
+綜觀所有年度我們可以觀察到，男女毛入學率的比率，是有繼承性的，初中和高中、小學和初中、學前和小學都是有關聯的，而其中教育階級越高，關聯性則是越強。
+
+舉個例子來說，若是在初中時女生毛入學率較高，高中時毛入學率女生有很大的機會比較高，因為其中是有關聯的，以此類推。
+
+> **利用patchwork拼接熱圖，cor()算相關係數，ggplot2::ggplot()畫出熱圖**
+
+# 七、圖表結果分析 {.tabset .tabset-fade .tabset-pills}
+
+## 假設檢定
+
+這邊的主要目標是得知男女毛入學率是否有差別。
+
+- 由迴歸模型可以得知，**性別對於毛入學率是沒有很大的影響的**，所以世界各區域的男女毛入學率幾乎是差不多的。
+
+- 由單尾T檢定可以得知，**男生的毛入學率是不高於女生的**，甚至有些地區的女生毛入學率平均甚至是比男生還要高。
+
+- 圖表化的結論可以得出很多地區的p-value都非常高，代表著不僅**男女毛入學率平等，甚至是代表著女生毛入學率很多地區都超過男生了**。
+
+## 資料視覺化
+
+>這邊所使用的比率是：男生GER/女生GER，比率越大男生毛入學率高於女生，反之。
+
+### [男女毛入學率與教育階段的關聯]{style="color: #68b4f7;"}
+
+- **大部分區域的教育階級越高，女生毛入學率越大於男生**，尤其是在高中階段這種現象特別明顯，只有非洲區域是完全相反的，推測可能是因為經濟發展程度較低。
+
+- 教育階段越低，特別是在學前教育的部分，男女毛入學率都非常的相近，而且幾乎都非常接近100%，**而越高的教育階層，男女比率會越差越大**，推測是因為其實學前教育已經非常的普及，而且也比較難做出一個明確的定義。
+
+### [觀察時間改變與男女毛入學率差別的關係]{style="color: #68b4f7;"}
+
+- 可以觀察到的一個各地區的共通點是，在高中這個階段，都是斜率向下的，也就是說**女生在高中的入學率比率，隨著時間的經過，就算早已超越男生，還是不斷地在成長**。這也呼應了前面所述，大部分區域的教育階級越高，女生毛入學率越大於男生
+
+- **在其他的教育階段，波動則是相當巨大，在各個國家沒有一定的模式**，但是這也更顯現了女生毛入學率在高中階段的強勢趨勢。
+
+## 相關性分析
+
+- **男女毛入學率的比率，是有繼承性的**，初中和高中、小學和初中、學前和小學都是有關聯的，而其中教育階級越高，關聯性則是越強。舉例來說，若是在初中時女生毛入學率較高，高中時毛入學率女生有很大的機會比較高。
+
+- **這個繼承性隨著時間的經過是在減少的**。
+
+- **學前與高中教育的關聯性非常小**。
+
+# 八、結論
+
+其實與我原本預估的結果差距很大，讓我感到非常驚訝。因為原本認為男女薪水不平等的問題，就同時也代表著其實社會上許多問題也是男生擁有較多的資源和權利，但經過這次分析之後發現完全是與我想像中的相反，反而在許多地區，特別是經濟發展程度較好的國家，女生的受教育的程度是比男生還要高的，甚至是差距正在擴大，因為全世界的趨勢都是女生的教育程度比率正在大幅增加，就算是男生受教程度較高的非洲地區也是一樣。
+
+# 九、個人觀點
+
+其實現在直接到網路上查關鍵字「女性教育」，就會跑出一連串的爭取女性受教權相關的議題，不斷要求改善不平等的問題，這是目前在台灣的狀況，也讓我不斷地以為全世界都是這種情況。但是做了這次研究發現，像是歐洲北美這樣先進的國家，是已經沒有這類問題。
+
+經過思考後，我認為：
+
+- 教育被認為是經濟成長的關鍵因素，增加女性的教育機會被視為促進經濟發展的一種方式，所以在先進國家中女教育參與率才會高於男。而這也同時代表著全世界的女生教育參與率成長的趨勢，正是跟經濟成長有一定的關聯。
+
+- 研究指出一般女生比男生更重視於學習，在經濟發展較為先進的國家，由於居民的經濟條件普遍較佳，即使男性學生不願意投入學業，他們仍有足夠的經濟能力去探索與學習無關的其他活動。此外，即使在一些傳統觀念可能優先考慮男性的教育需求的情況下，這種經濟寬裕的狀況也允許女性學生接受教育。
+
+# 十、三個問題 {.tabset .tabset-fade .tabset-pills}
+
+## 想法來源
+
+在課堂中老師有提到，男女薪水的平等是否有真的被實踐的社會問題，於是我從此發想延伸，想用另一種面向來看男女平等的問題，所以就從與社會息息相關的教育程度方面來著手，觀察是否在教育上也有男女不平等的地方。
+
+## 新套件和函數
+
+### [新套件]{style="color: #68b4f7;"}
+
+[ **library(DiagrammeR)、library(DT)、library(gridExtra)、library(corrplot)、library(reshape2)** ]{style="color: coral;"}
+
+library(tidyverse)、library(dplyr)、library(ggplot2)、library(patchwork)
+
+### [新函數]{style="color: #68b4f7;"}
+
+1. 資料處理：
+
+[**datatable()、melt()、grepl()、gsub()、spread()**]{style="color: coral;"}
+
+select()、mutate()、subset()、filter()
+
+2. 假設檢定：
+
+[**t.test()**]{style="color: coral;"}
+
+lm()、summary()
+
+3. 資料視覺化:
+
+[**grid.arrange()、grViz()、plot_layout()**]{style="color: coral;"}
+
+ggplot()、geom_line()、geom_point()、geom_title()、geom_bar()、theme()
+
+4. 相關性分析：
+
+[**cor()**]{style="color: coral;"}
+
+## 困難的部分
+
+### [圖表架構]{style="color: #68b4f7;"} 
+
+因為這筆數據的資料屬性非常多，所以我花費了許多心思在圖表的架構以及選擇上，我希望能夠以不同面向的分析方法，找出最佳的圖表呈現方式。而我也花費了大量的時間在處理數據，整理成繪製圖表所需要的格式，也花費了許多時間在圖表的外觀美化上面，希望能讓他乾淨簡潔有力。
+
+### [網頁排版]{style="color: #68b4f7;"}
+
+為了使網頁在使用上有更好的使用者體驗，特別的上網搜尋很久才找到了名為`downcute`的Rmarkdown版面，熱整體看起來更舒適，還可以切換亮暗的功能。而因為Rmarkdown有很多的排版功能可以使用，所以我也花費了很多的時間在閱讀他的功能大全，以找到最適合的方法呈現。**不過很感謝老師的PresTrees內容，讓我在尋找許多功能的時候，也可以從上面簡便的查出。**

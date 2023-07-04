@@ -1,0 +1,280 @@
+---
+title: "Financial Big Data HW3"
+author: '109090046'
+date: "2023-03-12"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      comment = "", 
+                      dev.args = list(bg = 'lavender',                                       pointsize = 11))
+
+library(kableExtra)
+ptable = function(df,digits = getOption("digits"),size = 14){
+  df %>% knitr::kable(digits = digits) %>% 
+    kable_classic(lightable_options = c("striped", "hover", "condensed"),
+                  fixed_thead = list(enabled = T, 
+                                     background = "lavender"),
+                  font_size = size, full_width = F,
+                  html_font = "helvetica")
+}
+```
+
+### Dataset setting up
+
+First copy the dataset `diamonds` from the `tidyverse` package to `dmd` and only work on `dmd`. You should do the routine inquiry on `dmd` using `head()`, `str()`, `skim()`, etc.
+```{r}
+library(tidyverse)
+dmd <- diamonds
+head(dmd)
+str(dmd)
+```
+
+---
+
+### Question1
+
+Use the `skim()` to see how different the mean and the median of the variable `price` are. Please explain why they are so different.
+```{r}
+library(skimr)
+skim(dmd$price)
+```
+
+Because their must be some of outliers that the price are incredibly large such that the mean might be influenced by them. So, in this case, the median(p50) are more reliable than mean in this data.
+
+---
+
+### Question2
+
+Use the `boxplot()` function to draw a box plot horizontally and explain how the resulting plot confirms your answer in the previous question.
+
+```{r}
+boxplot(dmd$price, horizontal= TRUE)
+```
+
+As we can see in the boxplot, there are plenty of outliers(which are represented as black dots) that are over 10000 or even 15000. They are really far from the median which is 2401.
+
+---
+
+### Question3
+
+Use the `hist()`, `density()` and `lines()` functions to overlap a histogram and a density plots. Please once again explain how the resulting plots confirm your answers in the previous questions. Please add the option `ylim = c(0,0.0004)` to `hist()` and explain what this option does.
+```{r}
+hist(dmd$price, ylim = c(0,0.0004), main='Histogram and density plot of dmd$price',freq=FALSE, xlab='price')
+lines(density(dmd$price), col='blue', lwd=2)
+```
+
+The `ylim = c(0,0.0004)` sets the y-axis limits of the histogram to be between 0 and 0.0004. Combining with `freq=FALSE` which normalizes the histogram so the total area equals 1, we can clearly see the percentages. Also, the area under density plot equals 1, so we can now compare histogram and density plot  more easily.
+
+The resulting plots confirms the answers to the previous questions by showing that the distribution of the price variable is right-skewed with a long tail extending to the right side of very large prices. The peak of the density curve corresponds to the median value of the price variable, tells that lots of most of the prices are not that high. Therefore, the mean value are influenced by large values while median value doesn't.
+
+---
+
+### Question4
+Please extract observations with the smallest 40% values of the variable `price` using the `subset()` and `quantile()` functions (add the option `probs = 0.4` in the latter) and copy this subsample to `dmd`. We will work on this subsample `dmd` only from now on. Please explain the possible reason why we want to delete so many observations.
+
+```{r}
+price_40th <- quantile(diamonds$price, probs = 0.4)
+dmd <- subset(diamonds, price <= price_40th)
+```
+
+From the previous questions we do know that the price data is right-skewed. By removing those data larger than 40% of the quantile we can almost remove the influences from the large value outliers, also more focus on the prices that do really matter.
+
+---
+
+### Question5
+
+Please use the `cut()` function to create a categorical variable `Cprice` from the variable `price` and add `Cprice` to `dmd`. Set the number of categories to 4 with labels `cheap`, `moderate`, `costly`, and `verycostly`, respectively.
+
+```{r}
+dmd$Cprice <- cut(dmd$price, breaks = 4, labels = c("cheap", "moderate", "costly", "verycostly"))
+# To ensure that we did it successfully
+head(dmd) %>% ptable()
+```
+
+---
+
+### Question6
+
+Please check out the meaning of the categorical variable `color` and make a cross-table using the command     `table(color,Cprice)`. Please explain the meaning of the resulting table.
+
+Diamonds are graded on a scale from D to J, with D being the highest rating for colorless diamonds and J being the lowest rating for diamonds with a yellow or brown tint. The color grades are assigned based on the presence of yellow or brown coloration, with D diamonds being completely colorless and J diamonds having the most visible color.
+
+```{r}
+table(dmd$color, dmd$Cprice) %>% ptable()
+```
+
+The resulting table will show the count of diamonds for each combination of color and `Cprice`. The rows represent the different color grades of diamonds (D, E, F, G, H, I, J), while the columns represent the different price points in the dataset. The cells contain the counts of diamonds with a particular color grade and `Cprice`.
+
+The resulting table can be used to explore the relationship between color and `Cprice`. For example, we can see that there are more diamonds with color grade G than any other grade, and that the highest number of diamonds are in the price range of 5,000 to 6,000. However, this table alone does not provide any information about the distribution of `Cprice` within each color grade or the relationship between color and `Cprice` in terms of average or median prices. 
+
+---
+
+### Question7
+
+Please make a horizontal bar plot from the result of the previous question. Please set the `col` option to `palette(“Set 3”)[2:8] %>% alpha(0.6)` and exaplain what this option does. Furtheremore, set the `args.legend` option to `list(x = “topright”, inset = c(0.02,-0.15), title = “color”, horiz = T)` and explain what this option does.
+
+```{r}
+
+barplot(table(dmd$color, dmd$Cprice), horiz = TRUE, col = palette("Set 3")[2:8] %>% alpha(0.6), 
+        legend.text = unique(dmd$color), 
+        args.legend = list(x = "topright", inset = c(0.02,-0.15), title = "color", horiz = TRUE),
+        xlab = "Amount", ylab = "Price")
+par(mar = c(5, 5, 4, 2) + 0.1)
+```
+
+The `col` option sets the colors of the bars in the plot. In this case, we are using the palette function from the scales package to set the colors to a specific color `palette ("Set 3")` and then setting the transparency or alpha value of the colors to 0.6 using the alpha function from the scales package. This creates semi-transparent bars that allow us to see overlapping bars more easily.
+
+The `args.legend` option sets the position and properties of the legend in the plot. The x option specifies the position of the legend (in this case, the top-right corner of the plot), the inset option sets the horizontal and vertical distances between the legend and the plot area, the title option sets the title of the legend (in this case, "color"), and the `horiz` option sets the orientation of the legend to horizontal.
+
+--- 
+
+### Question8
+
+Redo the previous two questions by changing the order of the two categorical variables ‘color’ and ‘Cprice’. Explain which setup is better and why. Hint: be careful about the setting of the ‘col’ option.
+
+```{r}
+table(dmd$Cprice, dmd$color)
+
+barplot(table(dmd$Cprice, dmd$color), horiz = TRUE, col = palette("Set 3")[2:8] %>% alpha(0.6), 
+        args.legend = list(x = "topright", inset = c(0.02,-0.15), title = "price", horiz = TRUE),
+        legend.text = unique(dmd$Cprice),
+        xlab = "Amount", ylab = "Color")
+```
+
+Note that we have reversed the color palette using the `rev` function so that the colors match those used in the previous bar plot.
+
+In terms of which setup is better, it depends on the specific research question and analysis. If the focus is on exploring the relationship between color and price, it might make more sense to have `color` as the row variable and `Cprice` as the column variable, as in question 7. This allows us to see the distribution of prices within each color grade and identify any patterns or trends.
+
+On the other hand, if the focus is on exploring the distribution of prices across different color grades, it might make more sense to have `Cprice` as the row variable and `color` as the column variable, as in question 8. This allows us to see the distribution of prices at different levels of color rating and identify any outliers or unusual patterns.
+
+---
+
+### Question9
+
+Please check out the meaning of the categorical variable `carat` and use the `tapply()` function to calculate the subsample averages of the `carat` variable based on the cross-table in question 7.
+
+The `carat` variable in the diamonds dataset represents the weight of the diamond in carats, which is one of the main factors that determines its value,larger diamonds are more valuable than smaller ones.
+
+
+```{r}
+tapply(dmd$carat, list(dmd$color, dmd$Cprice), mean) %>% ptable()
+```
+
+The result is a table where each row corresponds to a different color grade and each column corresponds to a different price range. The values in the table represent the mean carat value for each combination of `color` and `Cprice`.
+
+---
+
+### Question10
+
+Please make a horizontal bar plot for the result of the previous question. Please set the following options `col = palette(“Set 3”)[2:8] %>% alpha(0.6)`, `main = “Subsample Averages of Carat”`, `args.legend = list(x = “topright”,horiz = T, title = “color”, inset = c(0.02,-0.05))`. Please check what these options do.
+
+```{r}
+mean_carat <- tapply(dmd$carat, list(dmd$color, dmd$Cprice), mean)
+
+barplot(mean_carat, horiz = TRUE, 
+        col = palette("Set 3")[2:8] %>% alpha(0.6), 
+        main = "Subsample Averages of Carat", ylab="price", xlab="average",
+        legend.text = unique(dmd$color),
+        args.legend = list(x = "topright", horiz = TRUE, 
+                           title = "color", inset = c(0.02,-0.05)))
+```
+
+The `col` option sets the colors of the bars in the plot. In this case, we are using the palette function from the scales package to set the colors to a specific color `palette ("Set 3")` and then setting the transparency or alpha value of the colors to 0.6 using the alpha function from the scales package. This creates semi-transparent bars that allow us to see overlapping bars more easily.
+
+The `main` option shows the title of the plot.
+
+The `args.legend` option sets the position and properties of the legend in the plot. The x option specifies the position of the legend (in this case, the top-right corner of the plot), the inset option sets the horizontal and vertical distances between the legend and the plot area, the title option sets the title of the legend (in this case, "color"), and the `horiz` option sets the orientation of the legend to horizontal.
+
+---
+
+### Question11
+
+Please add the following two commands `.[order(.[,1],decreasing = T),]` and `.[,order(.[1,],decreasing = T)]` after the `tapply()` function, each with the `%>%` operator. Please speculate what these commands do. 
+
+```{r}
+tapply(dmd$carat, list(dmd$color, dmd$Cprice), mean) %>% 
+  .[order(.[,1],decreasing = T),] %>% 
+  .[,order(.[1,],decreasing = T)] %>% ptable()
+```
+
+`.[,1]` selects the first column of the data frame, and the `.` refers to the data frame being sorted.
+
+`.[order(.[,1],decreasing = T),]` uses `order` to sort the data frame by the values in the first column in decreasing order, and returns the sorted data frame with all columns included.
+
+`.[,1]` selects the first row of the data frame.
+
+`.[,order(.[1,],decreasing = T)]` sorts the data frame by the values in the first row in decreasing order, and returns the sorted data frame with all rows included.
+
+Overall, these commands are sorting the subsample averages of the carat variable by the mean values for the D-cheap category in decreasing order, first within each color and then across all colors.
+
+--- 
+
+### Question12
+
+please define an R function called `callprice` for the above `C` formula (Black-Scholes call option price) with 7 arguments `xt` (the underlying asset price), `K` (strike price), `t` (the time period), `T` (maturity), `R` (interest rate), `eta` (dividend rate), `sigma` (volatility), for which the default values are `xt=10`, `K=10`, `t=0`, `T=1`, `R=0.03`, `eta=0.02`, `sigma=0.4`, respectively.
+
+```{r}
+callprice <- function(xt = 10, K = 10, t = 0, T = 1, R = 0.03, eta = 0.02, sigma = 0.4) {
+  
+  d1 <- (log(xt/K) + (R - eta + 0.5*sigma^2)*(T-t)) / (sigma*sqrt(T-t))
+  d2 <- d1 - sigma*sqrt(T-t)
+  
+  N1 <- pnorm(d1)
+  N2 <- pnorm(d2)
+  
+  call_price <- xt*exp(-eta*(T-t))*N1 - K*exp(-R*(T-t))*N2
+  
+  return(call_price)
+  
+}
+```
+
+---
+
+### Question13
+
+Define the following helper function to reformulate your `callprice()` function with only 2 arguments of which the main argument `x` is defined to be the `sigma` argument of `callprice()` and `T` is the same as the `T` argument of `callprice()`.
+
+```{r}
+ct = function(x,T)
+{
+  callprice(sigma = x, T = T)
+}
+```
+
+Please use this `ct()` function with the `curve()` function to draw three curves showing the relationship between the call option price and the volatility `sigma` with `T` set to be 1 (black color), 0.5 (green color), and 10 (red color), respectively. Also please add the following options to the `curve()` function: `from = 0, to = 4, n = 200`. So the commands are as follows:
+
+```{r}
+curve(ct(x,T = 1), from = 0, to = 4, n = 200, main="The relationship between the call option price and the volatility with different time period", ylab='Call Option Price', lwd=2)
+curve(ct(x,T = 0.5), from = 0, to = 4, n = 200, add = T, col = "green", lwd=2)
+curve(ct(x,T = 10), from = 0, to = 4, n = 200, add = T, col = "red", lwd=2)
+```
+
+Based on the resulting graph, explain how the two arguments `sigma` and `T` of your `callprice()` function affect the call option price. Can you explain why you need to define the helper function `ct()`.
+
+**Ans**: From the plot, we can see that with the same time period (T), when the volatility (sigma) increases, the call option price also increases in a trend. We can also discover that the influences that volatility do on call option price (slope of the plot) rises when time period is longer, decreases when time period is shorter. 
+
+We defined the helper function `ct()` to fix the value of the T argument in the `callprice()` function and let sigma can be set as x-axis. So that we could use the resulting function with the `curve()` function to plot multiple curves with different values of T. Which allowed us to visualize the effect of the `T` on the relationship between the call option price and `sigma`.
+
+---
+
+### Question14
+
+Please define another helper function to draw three curves showing the relationship between call option price and the underlying asset price `xt` with `T` set to be 1 (black color), 0.5 (green color), and 10 (red color), respectively. Also please add the following options to the `curve()` function: `from = 0, to = 20, n = 200`.
+
+```{r}
+cxt = function(x,T)
+{
+  callprice(xt = x, T = T)
+}
+
+curve(cxt(x,T = 1), from = 0, to = 20, n = 200, main="The relationship between the underlying asset price and the time with different time period", ylab='Call Option Price', lwd=2)
+curve(cxt(x,T = 0.5), from = 0, to = 20, n = 200, add = T, col = "green", lwd=2)
+curve(cxt(x,T = 10), from = 0, to = 20, n = 200, add = T, col = "red", lwd=2)
+```
+
+From the plot, we can see that when time period is fixed, the underlying asset price increases, and the call option price also increases. Also, as the longer time period, the call option price reacts to rise faster.

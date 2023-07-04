@@ -1,0 +1,105 @@
+---
+title: "Untitled"
+author: '109090046'
+date: "2023-03-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1
+
+```{r}
+myplot = function(m, s, n = 500)
+{
+  
+  r = rlnorm(n,m,s) 
+  q = quantile(r,seq(0,1,0.01))
+  p = dlnorm(q,m,s) 
+  
+  
+  hist(r, freq = F, main = "", xlab = "", xlim = c(0,5))
+  lines(density(r), main = "", xlab = "")
+  lines(x = q, y = p, col = "red")
+}
+
+par(mfrow = c(2,2))
+
+myplot(m = 0, s = 0.2)
+myplot(m = 0, s = 0.3)
+myplot(m = 1, s = 0.2)
+myplot(m = 1, s = 0.3)
+
+
+```
+
+`m`: The mean of the log-normal distribution.
+`s`: The standard deviation of the log-normal distribution.
+`n`: The number of observations to generate. It has a default value of 500.
+
+`par(mfrow = c(2,2))` is used to divide the plotting region into a 2x2 grid, so that four plots can be displayed in the same window.
+
+## 2
+**Ans**: Two line plots and one histogram.
+
+## 3
+**Ans**: xlim=c(0,5) is to set the histograms x-axis to show from value 0 to 5.
+
+## 4
+**Ans**: To let the total area in the histogram to be 1, which is set each bins value by percentages.
+
+## 5
+
+```{r}
+myplot = function(m, s, n = 500)
+{
+  
+  r = rnorm(n,m,s) 
+  q = quantile(r,seq(0,1,0.01))
+  p = dlnorm(q,m,s) 
+  
+  
+  hist(r, freq = F, main = "", xlab = "", xlim = c(0,5))
+  lines(density(r), main = "", xlab = "")
+  lines(x = q, y = p, col = "red")
+}
+
+par(mfrow = c(2,2))
+
+myplot(m = 2, s = 0.2, n=1000)
+myplot(m = 2, s = 0.4, n=1000)
+myplot(m = 3, s = 0.2, n=1000)
+myplot(m = 3, s = 0.4, n=1000)
+
+```
+
+## 6
+
+```{r}
+callprice <- function(xt = 10, K = 10, t = 0, T = 1, R = 0.03, eta = 0.02, sigma = 0.4) {
+  
+  d1 <- (log(xt/K) + (R - eta + 0.5*sigma^2)*(T-t)) / (sigma*sqrt(T-t))
+  d2 <- d1 - sigma*sqrt(T-t)
+  
+  N1 <- pnorm(d1)
+  N2 <- pnorm(d2)
+  
+  call_price <- xt*exp(-eta*(T-t))*N1 - K*exp(-R*(T-t))*N2
+  
+  return(call_price)
+  
+}
+
+ct = function(x,K)
+{
+  callprice(sigma = x, K = K)
+}
+
+curve(ct(x,K = 10), from = 0, to = 20, n = 200, lwd=2)
+curve(ct(x,K = 5), from = 0, to = 20, n = 200, add = T, col = "green", lwd=2)
+curve(ct(x,K = 15), from = 0, to = 20, n = 200, add = T, col = "red", lwd=2)
+```
+
+3 fingers

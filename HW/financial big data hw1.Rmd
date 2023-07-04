@@ -1,0 +1,88 @@
+---
+title: "Financial Big Data HW1"
+author: 'QF24 109090046呂庭羽'
+date: "2023-02-21"
+output: word_document
+---
+
+------------------------------------------------------------------------
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Question 1
+
+The variable 'Temp' of the dataset 'airquality' contains temperature in degrees Fahrenheit. Please add another variable (column) to 'airquality' by the name 'TempC' that contains degrees Celsius converted from 'Temp'. Use the 'str()' function to check the resulting 'airquality' and copy the result to your answer sheet.
+
+```{r q1}
+# Load the airquality dataset
+data(airquality)
+
+# Create a new variable TempC 
+airquality$TempC <- (airquality$Temp - 32) * (5/9)
+
+# Check the structure of updated dataset
+str(airquality)
+```
+
+------------------------------------------------------------------------
+
+### Question 2
+
+Install a new package 'skimr' (use help to find out what functions it contains). Apply the 'skim' function from this package to the 'airquality' dataset and then apply the base function 'summary()' to the 'airquality' dataset. Copy all the results to your answer sheet and explain the difference between the outputs of these two functions.
+
+```{r q2}
+# Install skimr
+#install.packages("skimr")
+
+# Use `help` to find out what it contains
+# help(package = "skimr")
+
+# Apply the `skim()` function from skimr
+library(skimr)
+skim(airquality)
+```
+
+It reports the type of variable, the number of observations, the number of missing values and complete rate. And the mean, standard deviation, minimum, 25th percentile, median, 75th percentile, and maximum values. It also provides the histogram.
+
+```{r, q2-2}
+# Apply base function `summary()`
+summary(airquality)
+```
+
+It only provides minimum, 25th percentile, median, 75th percentile, maximum values and the number of missing values.
+
+In summary, `summary()` functions provide a quick overview of the data., while the `skim()` function provides a more detailed and informative summary that includes more descriptive statistics.
+
+------------------------------------------------------------------------
+
+### Question 3
+
+Please use the 'apply()' function together with the 'mean()', 'median()', 'sd()' and 'quantile()' functions, respectively, to each variable of the 'airquality' dataset. Please include the 'na.rm' option with both 'F' and 'T' values to see how this option affects the results. Write down the commands and copy all the results to your answer sheet.
+
+```{r q3}
+# means without removing NAs
+apply(airquality, 2, mean, na.rm = FALSE)  
+
+# means with removing NAs
+apply(airquality, 2, mean, na.rm = TRUE)   
+
+# medians without removing NAs
+apply(airquality, 2, median, na.rm = FALSE)  
+
+# medians with removing NAs
+apply(airquality, 2, median, na.rm = TRUE) 
+
+# standard deviations without removing NAs
+apply(airquality, 2, sd, na.rm = FALSE)  
+
+# standard deviations with removing NAs
+apply(airquality, 2, sd, na.rm = TRUE)   
+
+# quartiles without removing NAs can't be calculated
+# apply(airquality, 2, quantile, na.rm = FALSE)  
+
+# quartiles with removing NAs
+apply(airquality, 2, quantile, na.rm = TRUE)   
+```

@@ -1,0 +1,76 @@
+---
+title: "quiz3"
+author: '109090046'
+date: "2023-03-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      comment = "", 
+                      dev.args = list(bg = 'lavender',                                       pointsize = 11))
+
+library(tidyverse)
+library(nycflights13)
+library(magrittr)
+library(kableExtra)
+ptable = function(df,digits = getOption("digits"),size = 14){
+  df %>% knitr::kable(digits = digits) %>% 
+    kable_classic(lightable_options = c("striped", "hover", "condensed"),
+                  fixed_thead = list(enabled = T, 
+                                     background = "lavender"),
+                  font_size = size, full_width = F,
+                  html_font = "helvetica")
+}
+```
+
+## 1
+
+```{r}
+flights %>% transmute(across(ends_with("time")& -air_time,
+                             ~60*as.integer(str_sub(.x,1,-3))+as.integer(str_sub(.x,-2,-1)),
+                             .names = "new_{.col}"))
+```
+
+new_dep_time: The departure time of the flight in minutes since midnight.
+new_arr_time: The arrival time of the flight in minutes since midnight.
+new_sched_dep_time: The scheduled departure time of the flight in minutes since midnight.
+new_sched_arr_time: The scheduled arrival time of the flight in minutes since midnight.
+
+## 2
+
+You can also embed plots, for example:
+
+```{r}
+library(gapminder)
+
+dd <- c('red', 'gray', 'yellow', 'cyan', 'white')
+names(dd) <- c('Africa', 'Americas', 'Asia', 'Europe', 'Oceania')
+
+years <- gapminder %>% filter(year %in% c(1952, 1977, 2002))
+
+par(mfrow = c(1, 3), mar = c(4.5, 4.5, 1.2, 2),
+    bg = "black", fg = "white", 
+    col.lab = "white", col.main = "white", col.axis = "white")
+
+for (yr in c(1952, 1977, 2002)) {
+    years %>% 
+    filter(year == yr) %$% 
+    plot(y = lifeExp, x = log10(gdpPercap), xlim = c(3, 5), ylim = c(35, 85),
+         xlab = "log10(GDP per Capita)", ylab = "Life Expectancy",
+         pch = 16, main = paste0("Year = ", yr),
+         col = as.vector(recode(continent, !!!dd)))
+}
+
+par(bg = "black", fg = "white", 
+    col.lab = "white", col.main = "white", col.axis = "white")
+
+legend("bottomright", inset = c(0.05, 0.1),
+       pch = 16, ncol = 1, 
+       col = dd, y.intersp = 0.8,
+       title = "Continent",
+       legend = names(dd))
+
+```
+
+This code produces a similar plot as before, but with a logarithmic transformation applied to the x-axis using the log10() function. The xlim parameter is set to restrict the x-axis to a range of 3 (corresponding to a GDP per capita of 1000) to 5 (corresponding to a GDP per capita of 100000).

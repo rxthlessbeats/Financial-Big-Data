@@ -1,0 +1,254 @@
+---
+title: "Financial Big Data HW4"
+author: '109090046'
+date: "2023-03-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      comment = "", 
+                      dev.args = list(bg = 'lavender',                                       pointsize = 11))
+
+library(tidyverse)
+library(magrittr)
+library(kableExtra)
+ptable = function(df,digits = getOption("digits"),size = 14){
+  df %>% knitr::kable(digits = digits) %>% 
+    kable_classic(lightable_options = c("striped", "hover", "condensed"),
+                  fixed_thead = list(enabled = T, 
+                                     background = "lavender"),
+                  font_size = size, full_width = F,
+                  html_font = "helvetica")
+}
+```
+
+---
+
+## Question 1
+
+Please define two new variables `Oclass` and `Chwy` using the `mutate()` and `tranmute()` functions as follows:
+
+```{r}
+mpg1 = mpg %>% mutate(
+  Oclass = reorder(class, -hwy, mean),
+  Chwy = cut(hwy, breaks = c(min(hwy), 20, 30, max(hwy)), labels = c("low", "mid", "high"))
+) %>% count(Oclass, Chwy)
+
+mpg2 = mpg %>% transmute(
+  Oclass = reorder(class, -hwy, mean),
+  Chwy = cut(hwy, breaks = c(min(hwy), 20, 30, max(hwy)), labels = c("low", "mid", "high"))
+) %>% count(Oclass, Chwy)
+
+mpg1 %>% ptable()
+mpg2 %>% ptable()
+```
+
+The difference between `mutate` and `transmute` is that `mutate` create new column by the function applied and keep original data, while `tranmutate` keeps the newly created data.
+
+But, from the result output, there is no difference. Because we uses `count()` to all of the columns in a table, it masks any differences between `mutate()` and `transmute()`.
+
+---
+
+## Question 2
+
+Given the results of the previous question please apply the `count()` function from the `dplyr` package to the two new variables `Oclass` and `Chwy` using `%>%` operator and then apply the base function `table()` function using `%$%` operator. Compare the two results to see the difference. Which one do you think is easier to understand? Also explain why you need to use two different operators `%>%` and `%$%`?
+
+```{r}
+mpg1 %>% ptable()
+
+counts <- mpg1 %>% count(Oclass, Chwy) %$% table(Oclass, Chwy)
+counts %>% ptable()
+```
+
+The previous resulting output (mpg1) shows the count of observations for each combination of `Oclass` and `Chwy` in a data.frame format. And the second output (counts) shows if the combination appears in every possible combination in table format.
+
+I think in the table format is more easily to understand because it shows an organized view of the amounts for each combination of `Oclass` and `Chwy`. 
+
+The `%>%` operator is used to pipe the output of one function into the input of the next function, allowing for easy chaining of operations. In this case, we are first using `count()` to count the number of observations for each combination of `Oclass` and `Chwy`, and then using `%$%` operator to apply the `table()` function to the resulting data frame.
+
+The `%$%` operator is used to access variables inside a data frame, similar to the `$` operator, but allowing for piping of operations. In this case, we are using `%$%` to access the `Oclass` and `Chwy` variables in the output of `count()` and apply the `table()` function to them.
+
+---
+
+## Question 3
+
+Install the package `Ecdat` which contains many datasets. Please list the names of these datasets and their brief descriptions in a two-column table. We are going to use the `Housing` dataset.
+
+```{r, results = 'hide'}
+library(Ecdat)
+```
+```{r}
+ecdat_data <- data(package = "Ecdat")$results[, c("Item", "Title")]
+
+ecdat_df <- as.data.frame(ecdat_data)
+
+colnames(ecdat_df) <- c("Dataset Name", "Description")
+
+head(ecdat_df) %>% ptable()
+```
+
+---
+
+## Question 4
+
+Please examine the following definition of the character vector ‘dd’ to understand its structure.
+
+```{r}
+dd = c('red','yellow','white','skyblue')
+print(dd)
+
+names(dd) = as.character(1:4)
+print(dd) 
+```
+
+`dd = c('red','yellow','white','skyblue')` creates a character vector with 4 elements: ‘red’, ‘yellow’, ‘white’, and ‘skyblue’.
+
+`names(dd) = as.character(1:4)` gives names to each element in `dd` with `as.character(1:4)`, corresponding to '1', '2', '3' and '4'.
+
+---
+
+## Question 5
+
+Please study the `recode()` function and then apply it to the variable `stories` of the `Housing` dataset with the vector `dd` defined before as an option (be careful about the three bangs in front of the vector name):
+
+please explain how the variable ‘stories’ is changed after the cammond is executed.
+
+```{r}
+Housing <- Housing %>% mutate(stories = recode(stories, !!!dd))
+
+head(Housing) %>% ptable()
+```
+
+The function `recode()` replaces value in `stories`  by the rules that defined by the named `dd` vector.
+
+Such as, the stories value changes to 'red' if it was originally '1', the stories value changes to 'yellow' if it was originally '2', and so on.
+
+The bangs `!!!` splice the named `dd` vector so that the names and values are used directly as arguments inside `recode()` function.
+
+---
+
+## Question 6
+
+Finally, please carefully study the following program and execute it to see a resulting graph with 3 scatter plots showing the relationships between `price` and `lotsize` of `housing`, as well as how that relationship is affected by the two variables `stories` (in different colors) and `bedrooms` (in different plots or the so-called facets). Briefly explain how `lotsize` affects `price` and how the variables `stories` and `bedrooms` affect this `price/lotsize` relationship.
+
+```{r}
+par(mfrow = c(2,2),mar=c(4.5,4.5,1.2,2),
+    # mar=c(3,4.5,1.2,2),
+    bg = "black", fg = "white", 
+    col.lab = "white", col.main = "white", col.axis = "white")
+Housing %>% filter(bedrooms == 2) %$% 
+  plot(y = price,x = lotsize, xlab ="", 
+       pch = 16, 
+       main = "bedrooms = 2",
+       col = as.vector(recode(stories,!!!dd)))
+Housing %>% filter(bedrooms == 3) %$% 
+  plot(y = price,x = lotsize, pch = 16, ylab ="",
+       xlab ="",
+       main = "bedrooms = 3",
+       col = as.vector(recode(stories,!!!dd)))
+Housing %>% filter(bedrooms == 4| stories == 4) %$% 
+  plot(y = price,x = lotsize, pch = 16, 
+       main = "bedrooms = 4",
+       col = as.vector(recode(stories,!!!dd)))
+par(bg = "black", fg = "black", 
+    col.lab = "black", col.main = "black", col.axis = "black")
+Housing %>% filter(bedrooms == 1) %$% 
+  plot(y = price,x = lotsize, col = "black")
+par(bg = "black", fg = "white", 
+    col.lab = "white", col.main = "white", col.axis = "white")
+legend("left", inset = c(0.05,0.1),
+       pch = 16, ncol = 1, 
+       col = dd, y.intersp = 0.8,
+       title = "Stories",
+       legend = names(dd))
+```
+
+How `lotsize` affects `price`: From the scatter plots, we can see there is a positive relationship between this two variable. Generally, in real estate market, large lots make price higher. 
+
+How  `stories` and `bedrooms` affect  `price/lotsize`: To, sum up, the positive relationship between `price/lotsize` in the real estate market is generally affected by the amount of `bedrooms` and `stories`. In reality, for the same size lot, houses with more stories and bedrooms tend to cost more.
+
+**You really need to figure out what the three ‘par()’ functions do and what the fourth ‘plot()’ function does (it is a channel helps to bring in the legend!).**
+
+The first `par()` function is to configure the layout of the plots and the options that affect the appearance.
+The second `par()` function is to set the background and foreground colors to black before creating the fourth plot.
+The third `par()` function is to set the parameters back to the original value (in first `par()`).
+The fourth `plot()` function is to create an “empty” plot for the legend the will be added.
+
+--- 
+
+## Question 7 
+
+Please install the `gapminder` package which contains the `gapminder` dataset which we will use now. Please modify the previous program to draw a graph that helps us examine the relationship between the two variables `lifeExp` (y) and `gdpPercap` (x) as well as the effects of the two variables `continent` (in different colors) and `year` (in different facets). There are many years of data but you only consider the three years: 1952, 1977 and 2002.
+
+```{r}
+library(gapminder)
+
+dd <- c('red', 'gray', 'yellow', 'cyan', 'white')
+names(dd) <- c('Africa', 'Americas', 'Asia', 'Europe', 'Oceania')
+
+years <- gapminder %>% filter(year %in% c(1952, 1977, 2002))
+
+par(mfrow = c(1, 3), mar = c(4.5, 4.5, 1.2, 2),
+    bg = "black", fg = "white", 
+    col.lab = "white", col.main = "white", col.axis = "white")
+
+for (yr in c(1952, 1977, 2002)) {
+    years %>% 
+    filter(year == yr) %$% 
+    plot(y = lifeExp, x = gdpPercap, xlim = c(0, 50000), ylim = c(35, 85),
+         xlab = "GDP per Capita", ylab = "Life Expectancy",
+         pch = 16, main = paste0("Year = ", yr),
+         col = as.vector(recode(continent, !!!dd)))
+}
+
+par(bg = "black", fg = "white", 
+    col.lab = "white", col.main = "white", col.axis = "white")
+
+legend("bottomright", inset = c(0.05, 0.1),
+       pch = 16, ncol = 1, 
+       col = dd, y.intersp = 0.8,
+       title = "Continent",
+       legend = names(dd))
+```
+
+--- 
+
+## Question 8 
+
+Please explain why `lifeExp` should be the y variable and `gdpPercap` should be x variable. Which continent has the most significant improvement in life over the 4 decades?
+
+**Ans:** 
+
+`lifeExp`: life expectancy, measures the average number of years a person is expected to live. 
+`gdpPercap`: GDP per capita, a measure of the economic output of a country divided by its population.
+
+We plot life expectancy (`lifeExp`) on the y-axis because it is the variable that we want to examine and understand.
+
+Therefore, it makes sense to plot GDP per capita on the x-axis because it is the variable that we want to compare with life expectancy and to understand if there is a relationship between them. Also, we can visualize relationship between these two variables and understand how they vary across different countries and continents.
+
+To determine which continent had the most significant improvement in life expectancy over the four decades, we can compare the life expectancy values for each continent in 1952 to those in 2002. We can calculate the difference in life expectancy for each continent and then determine which continent had the largest increase in life expectancy over this period.
+```{r}
+improve <- gapminder %>%
+  filter(year %in% c(1952, 2002)) %>%
+  group_by(continent, year, .keep = "unused") %>%
+  summarize(avg_lifeExp = mean(lifeExp), .groups = "drop_last") %>%
+  pivot_wider(names_from = year, values_from = avg_lifeExp) %>%
+  select(-.keep) %>%  # drop the .keep column
+  mutate(change = `2002` - `1952`) %>%
+  arrange(desc(change))
+```
+
+This code filters the `gapminder` dataset to include only the years 1952 and 2002. It then calculates the average life expectancy for each continent in those two years, calculates the difference between the two years, and arranges the results in descending order by the change in life expectancy.
+
+```{r}
+improve %>% ptable()
+```
+
+By comparing the scatter plots above, we can see that every continent have a similar trend to grow. However, Asia and Americas have grow the most from the red and yellow dots that tilt the most, but we cannot clearly see which one improve more. 
+
+From the resulting dataframe, we can see the change values from the most to the least, and Asia had the most significant improvement in life expectancy over the four decades, with an increase of 22.9 years. The Americas had the second-largest increase, with an increase of 19.1 years. Africa had the smallest increase in life expectancy, with an increase of 11.9 years.
+
+Therefore, we can conclude that Asia had the most significant improvement in life expectancy over the four decades.
+
+**Note: This kind of subsample analysis based on categorical variables using either bar plots or scatter plots is very important in any data analysis. You are urged to try other datasets using the template provided here to make yourself familiar with this kind of work.**

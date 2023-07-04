@@ -1,0 +1,54 @@
+---
+title: "quiz 5"
+author: '109090046'
+date: "2023-05-11"
+output: 
+  html_document:
+    css: style.css
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      comment = "", 
+                      dev.args = list(bg = 'lavender',                                       pointsize = 11))
+
+library(tidyverse)
+library(magrittr)
+library(kableExtra)
+ptable = function(df,digits = getOption("digits"),size = 14){
+  df %>% knitr::kable(digits = digits) %>% 
+    kable_classic(lightable_options = c("striped", "hover", "condensed"),
+                  fixed_thead = list(enabled = T, 
+                                     background = "lavender"),
+                  font_size = size, full_width = F,
+                  html_font = "helvetica")
+}
+```
+
+## Question 1
+The `after_stat()` function helps enhance the functionality of bar plots as follows:
+```{r}
+mpg %>% ggplot + 
+  geom_bar(aes(class,after_stat((count - median(count))),fill = class),
+           show.legend = F) +
+  ylab("Deviation from the Median")
+```
+
+what the `after_stat()` function does is to change the bar plots for simple subsample sizes to the ones for more complex subsample statistics, it should then be possible to make the same bar plots by ways of the `geom_col()` function. Please do it.
+
+**ANS:**
+
+```{r}
+# Calculate statistics manually
+mpg_stats <- mpg %>% 
+  count(class) %>% 
+  mutate(deviation = n - median(n))
+
+# Plot using geom_col()
+ggplot(mpg_stats, aes(x = class, y = deviation, fill = class)) +
+  geom_col(show.legend = F) +
+  ylab("Deviation from the Median")
+```

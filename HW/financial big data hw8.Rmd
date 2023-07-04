@@ -1,0 +1,227 @@
+---
+title: "Financial Big Data HW8"
+author: '109090046'
+date: "2023-05-04"
+output: 
+  html_document:
+    css: style.css
+    toc: true
+    toc_float: true
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      comment = "", 
+                      dev.args = list(bg = 'lavender',                                       pointsize = 11))
+
+library(tidyverse)
+library(nycflights13)
+library(magrittr)
+library(kableExtra)
+ptable = function(df,digits = getOption("digits"),size = 14){
+  df %>% knitr::kable(digits = digits) %>% 
+    kable_classic(lightable_options = c("striped", "hover", "condensed"),
+                  fixed_thead = list(enabled = T, 
+                                     background = "lavender"),
+                  font_size = size, full_width = F,
+                  html_font = "helvetica")
+}
+```
+
+Consider the the following reorganization of the `flights` dataset: for each origin we select 8 carriers with the most flights:
+
+```{r}
+library(nycflights13)
+
+df = flights %>% group_by(origin,carrier) %>%
+  mutate(nn = n()) %>% ungroup() %>%
+  group_by(origin) %>%
+  filter(nn %in% sort(unique(nn), decreasing = T)[1:8]) %>% ungroup()
+```
+
+The following codes lays down the analytic framework: a KPI (i.e., arr_delay) is defined with which we want to make a selection (picking the best and, possibly, the worst too) among choices (i.e., carrier) for each type (i.e., over the levels of origin):
+
+```{r}
+df %>% 
+  group_by(origin,carrier) %>% 
+  mutate(kpi = mean(arr_delay, na.rm = T)) %>% 
+  group_by(origin) %>% 
+  summarize(
+    best_kpi = min(kpi),
+    best_carrier = paste(unique(carrier %>% subset(kpi == best_kpi)),collapse = ", "), 
+    worst_kpi = max(kpi), 
+    worst_carrier = paste(unique(carrier %>% subset(kpi == worst_kpi)),collapse = ", ")
+  )  %>% ptable()
+```
+
+In the `summarize()` function additional variables may also be defined to present further information about kpi. choices, and types.
+
+The following codes define ordered column plots with bar labels in facets to present distribution information about KPI across choices for each type:
+```{r}
+library(tidytext)
+df %>%
+  group_by(origin,carrier) %>%
+  summarise(kpi = mean(arr_delay, na.rm = T)) %>%
+  ggplot() +
+  geom_col(aes(reorder_within(carrier,kpi,origin), kpi),
+           col = "gray", fill = "black") +
+  scale_x_reordered() +
+  facet_wrap(~ origin, scales = "free_x") +
+  geom_text(aes(reorder_within(carrier,kpi,origin), kpi,
+                label = round(kpi,0)), 
+            vjust = 1.2, color = "red",
+            position = position_dodge(0.9)) +
+  theme_grey()
+```
+
+
+The following codes define a heatmap which provides the same information as that of previous column plots:
+
+```{r}
+df %>% 
+  group_by(origin,carrier) %>%
+  summarise(kpi = mean(arr_delay, na.rm = T)) %>%
+  ggplot(aes(carrier,origin %>% fct_relevel(rev))) + 
+  geom_tile(aes(fill = kpi)) +
+  geom_text(aes(label = round(kpi,2)), col = "lightblue")
+```
+
+## Question 1) 
+Please modify these codes to do the following:
+
+### i. 
+Select 5 destinations with the most flights
+```{r}
+top_dest <- flights %>%
+  count(dest) %>%
+  top_n(5, n) %>%
+  pull(dest)
+
+top_dest %>% ptable()
+```
+
+### ii.
+For each of these destinations, seelect 5 carriers with the most flights
+```{r}
+filtered_flights <- flights %>%
+  filter(dest %in% top_dest) %>%
+  group_by(dest, carrier) %>%
+  mutate(nn = n()) %>%
+  ungroup() %>%
+  group_by(dest) %>%
+  filter(nn %in% sort(unique(nn), decreasing = TRUE)[1:5]) %>%
+  ungroup()
+
+filtered_flights %>% head() %>% ptable()
+```
+
+### iii. 
+Make an ordered column plot of the flight cancellation percentage (based on the missing values of the ‘dep_time’ variable) in each facet corresponding to one of the 5 destinations
+```{r}
+# Calculate the flight cancellation percentage
+cancel_rate <- filtered_flights %>%
+  group_by(dest, carrier) %>%
+  summarise(cancel_percent = mean(is.na(dep_time), na.rm = TRUE) * 100)
+
+# Ordered column plot
+ggplot(cancel_rate) +
+  geom_col(aes(reorder_within(carrier, cancel_percent, dest), cancel_percent),
+           col = "gray", fill = "black") +
+  scale_x_reordered() +
+  facet_wrap(~ dest, scales = "free_x") +
+  geom_text(aes(reorder_within(carrier, cancel_percent, dest), cancel_percent,
+                label = round(cancel_percent, 1)),
+            vjust = 1.2, color = "red",
+            position = position_dodge(0.9)) +
+  theme_grey() +
+  labs(x = "Carrier", y = "Cancellation Percentage")
+```
+
+### iv.
+Make an equivalent heatmap
+```{r}
+ggplot(cancel_rate, aes(carrier, dest %>% fct_relevel(rev))) +
+  geom_tile(aes(fill = cancel_percent)) +
+  geom_text(aes(label = round(cancel_percent, 1)), col = "lightblue") +
+  labs(x = "Carrier", y = "Destination") +
+  theme_grey()
+```
+
+## Question 2
+Please find a dataset which cannot be any of R internal datasets or the datasets we have used in the class or in the homeworks, Then redo the above questions with a meaning framework and a KPI. You can construct multiple KPIs if you like. Please include codes for data cleaning and reorganization. You also need to provide some explanations about why you choose your dataset and what goals you have achieved.
+
+**ANS:**
+
+We will use a dataset about bike-sharing systems. The "Bike Sharing in Washington D.C." dataset from the UCI Machine Learning Repository (<https://archive.ics.uci.edu/ml/datasets/bike+sharing+dataset>) contains information about the hourly count of rental bikes in Washington D.C.
+
+### Read the data:
+```{r, echo=FALSE}
+library(readr)
+bike_data <- read_csv("D:/下載/hour.csv")
+```
+
+### i.
+Select the top 5 days with the highest number of rentals:
+```{r}
+# Calculate the number of rentals per day
+daily_rentals <- bike_data %>%
+  # mutate(day = ymd(paste(year, month, day, sep = "-"))) %>%
+  group_by(dteday) %>%
+  summarize(total_rentals = sum(cnt))
+
+# Find the top 5 days with the highest number of rentals
+top_days <- daily_rentals %>%
+  top_n(5, total_rentals) %>%
+  pull(dteday)
+
+top_days %>% ptable()
+```
+
+### ii.
+Calculate the top 5 hours for each day in the top 5 day:
+```{r}
+# Filter the bike data to the top 5 days
+filtered_bike_data <- bike_data %>%
+  #mutate(day = ymd(paste(year, month, day, sep = "-"))) %>%
+  filter(dteday %in% top_days) %>%
+  group_by(dteday, hr) %>%
+  summarize(total_rentals = sum(cnt))
+
+# Calculate the top 5 hours for each day
+top_hours <- filtered_bike_data %>%
+  group_by(dteday) %>%
+  top_n(5, total_rentals) %>%
+  ungroup()
+
+top_hours %>% ptable()
+```
+
+### iii.
+Make an ordered column plot
+```{r}
+ggplot(top_hours) +
+  geom_col(aes(reorder_within(hr, total_rentals, dteday), total_rentals),
+           col = "gray", fill = "black") +
+  scale_x_reordered() +
+  facet_wrap(~ dteday, scales = "free_x") +
+  geom_text(aes(reorder_within(hr, total_rentals, dteday), total_rentals,
+                label = total_rentals),
+            vjust = 1.2, color = "red",
+            position = position_dodge(0.9)) +
+  theme_grey() +
+  labs(x = "Hour", y = "Total Rentals")
+```
+
+### iv.
+Equivalent heatmap
+```{r}
+# To use fct_relevel(), we need to change the <date> object into character
+top_hours$dteday <- as.character(top_hours$dteday)
+
+ggplot(top_hours, aes(hr, dteday %>% fct_relevel(rev))) +
+  geom_tile(aes(fill = total_rentals)) +
+  geom_text(aes(label = total_rentals), col = "lightblue") +
+  labs(x = "Hour", y = "Day") +
+  theme_grey()
+```

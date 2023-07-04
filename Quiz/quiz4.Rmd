@@ -1,0 +1,63 @@
+---
+title: "Quiz4"
+author: '109090046'
+date: "2023-04-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      comment = "", 
+                      dev.args = list(bg = 'lavender',                                       pointsize = 11))
+
+library(tidyverse)
+library(skimr)
+library(nycflights13)
+library(magrittr)
+library(kableExtra)
+ptable = function(df,digits = getOption("digits"),size = 14){
+  df %>% knitr::kable(digits = digits) %>% 
+    kable_classic(lightable_options = c("striped", "hover", "condensed"),
+                  fixed_thead = list(enabled = T, 
+                                     background = "lavender"),
+                  font_size = size, full_width = F,
+                  html_font = "helvetica")
+}
+```
+
+## Question 1
+Please fill in the following codes so that you can list the best and the worst carriers from the ‘flights’ data among 6 zones based on the KPI (Key Perforamnce indicator) and their respective KPI values. Can you tell what the KPI is and what ‘zone’ is?
+```{r}
+flights %>%
+  group_by(carrier, zone = cut_number(distance, 
+                                      n = 6,
+                                      labels = paste0("zone", 1:6))) %>%
+  mutate(kpi = round(100 * sum(is.na(dep_time)) / n(), 2)) %>%
+  group_by(zone) %>%
+  summarize(
+    best_kpi = min(kpi, na.rm = TRUE),
+    best_carrier = carrier[which.min(kpi)],
+    worst_kpi = max(kpi, na.rm = TRUE),
+    worst_carrier = carrier[which.max(kpi)]
+  )
+```
+
+**ANS:**
+The KPI is the percentage of canceled flights, and the 'zone' represents the distance range.
+
+The code groups the data by carrier and zone (with zones defined by equal intervals of distance), calculates the KPI for each carrier in each zone, then finds the best and worst carriers based on the KPI.
+
+## Question 2
+
+
+```{r}
+flights %>%
+  group_by(carrier, zone = cut_number(distance, 
+                                      n = 6,
+                                      labels = paste0("zone", 1:6))) %>%
+  summarize(kpi = round(100 * sum(is.na(dep_time)) / n(), 2), .groups = 'drop') %>%
+  ggplot() +
+  geom_col(aes(x = carrier, y = kpi, fill = carrier)) +
+  facet_wrap(~ zone, scales = "free_x")
+```
+
